@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<!DOCTYPE package-info SYSTEM "http://www.elkarte.net/site/package-info">
+<package-info xmlns="http://www.elkarte.net/site/package-info" xmlns:elk="http://www.elkarte.net/">
+	<license><![CDATA[
+/**
+ *
+ * @author	Arantor
+ * @porter	ahrasis http://sahabat.ahrasis.com
+ * @license	BSD http://opensource.org/licenses/BSD-3-Clause
+ * @addon	VEBA: View Enter Board Addon
+ *
+ */ 
+]]></license>
+	<id>ahrasis:ModifyAnytime</id>
+	<name>VEBA: View Enter Board Addon</name>
+	<version>1.0.0</version>
+	<type>modification</type>
+
+	<install for="1.*">
+		<readme type="file" parsebbc="true">VEBA.readme.txt</readme>
+		<modification type="file">VEBA.10x.xml</modification>
+		<require-file name="VEBA.english.php" destination="LANGUAGEDIR/english/VEBA" />
+		<require-file name="VEBA.subs.php" destination="SOURCEDIR/addons/VEBA" />
+		<code>VEBA.hooks.php</code>
+		<redirect url="?action=admin;area=permissions;sa=modify;group=0" timeout="499">Redirecting to Permission Settings...</redirect>
+	</install>
+
+	<uninstall for="1.*">
+		<readme parsebbc="true">VEBA.readme.txt</readme>
+		<modification type="file" reverse="true">VEBA.10x.xml</modification>
+		<remove-dir name="LANGUAGEDIR/english/VEBA" />
+		<remove-dir name="SOURCEDIR/addons/VEBA" />
+		<code>VEBA.hooks.php</code>
+		<redirect url="?action=admin;area=packages" timeout="499">Redirecting to Package Manager...</redirect>
+	</uninstall>
+
+</package-info>

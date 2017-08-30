@@ -1,0 +1,117 @@
+<?xml version="1.0"?>
+<!DOCTYPE package-info SYSTEM "http://www.elkarte.net/site/package-info">
+<modification xmlns="http://www.elkarte.net/site/package-info" xmlns:elk="http://www.elkarte.net/">
+	<license><![CDATA[
+/**
+ *
+ * @author	Arantor
+ * @porter	ahrasis http://sahabat.ahrasis.com
+ * @license	BSD http://opensource.org/licenses/BSD-3-Clause
+ * @addon	VEBA: View Enter Board Addon
+ *
+ */ 
+]]></license>
+	
+	<file name="SOURCEDIR/Load.php">
+		<operation>
+			<search position="replace"><![CDATA[	if ($user_info['is_admin'])
+		$user_info['query_see_board'] = '1=1';
+	// Otherwise just the groups in $user_info['groups'].
+	else
+		$user_info['query_see_board'] = '((FIND_IN_SET(' . implode(', b.member_groups) != 0 OR FIND_IN_SET(', $user_info['groups']) . ', b.member_groups) != 0)' . (!empty($modSettings['deny_boards_access']) ? ' AND (FIND_IN_SET(' . implode(', b.deny_member_groups) = 0 AND FIND_IN_SET(', $user_info['groups']) . ', b.deny_member_groups) = 0)' : '') . (isset($user_info['mod_cache']) ? ' OR ' . $user_info['mod_cache']['mq'] : '') . ')';]]></search>
+			<add><![CDATA[loadBoardsVisibility();]]></add>
+		</operation>
+		<operation>
+			<search position="replace"><![CDATA[WHERE b.id_board = {raw:board_link}]]></search>
+			<add><![CDATA[WHERE {query_see_board} AND b.id_board = {raw:board_link}]]></add>
+		</operation>
+		<operation>
+			<search position="end" />
+			<add><![CDATA[
+
+// Figure out what we can see. Note, because this sets up query_see_board, we cannot call boardsAllowedTo() :(
+function loadBoardsVisibility() {
+	global $user_info, $smcFunc;
+	
+	if($user_info['is_admin']) {
+		$user_info['query_see_board'] = '1=1';
+		$user_info['query_see_only_board'] = '1=1';
+		return;
+	}
+	
+	// SLOW QUERY?
+	$query = $smcFunc['db_query']('', '
+		SELECT b.id_board, bp.permission, bp.add_deny
+		FROM {db_prefix}boards AS b INNER JOIN {db_prefix}board_permissions AS bp ON (b.id_profile = bp.id_profile)
+		WHERE id_group IN ({array_int:groups}) AND bp.permission IN ({array_string:permission})',
+		array(
+			'groups' => $user_info['groups'],
+			'permission' => array('view_board', 'enter_board'),
+		)
+	);
+	
+	$boards = array(
+		'allow' => array(
+			'view_board' => array(),
+			'enter_board' => array(),
+		),
+		'deny' => array(
+			'view_board' => array(),
+			'enter_board' => array(),
+		)
+	);
+	
+	while($row = $smcFunc['db_fetch_assoc']($query)) {
+		$area = $row['add_deny'] ? 'allow' : 'deny';
+		$boards[$area][$row['permission']][] = $row['id_board'];
+	}
+	$smcFunc['db_free_result']($query);
+	
+	$allow = array_diff($boards['allow']['view_board'], $boards['deny']['view_board']);
+	$user_info['query_see_only_board'] = count($allow) > 0 ? 'b.id_board IN (' . implode(',', $allow) . ')' : '1=0';
+	
+	$allow = array_diff($boards['allow']['enter_board'], $boards['deny']['enter_board']);
+	$user_info['query_see_board'] = count($allow) > 0 ? 'b.id_board IN (' . implode(',', $allow) . ')' : '1=0';
+}
+]]></add>
+		</operation>
+	</file>
+	
+	<file name="SOURCEDIR/subs/BoardsList.class.php">
+		<operation>
+			<search position="replace"><![CDATA[WHERE {query_see_board}]]></search>
+			<add><![CDATA[WHERE {query_see_only_board}]]></add>
+		</operation>
+	</file>
+	
+	<file name="SOURCEDIR/controllers/MessageIndex.controller.php">
+		<operation>
+			<search position="after"><![CDATA[	// If this is a redirection board head off.]]></search>
+			<add><![CDATA[	// Hmm, sometimes we get here but user doesn't have enter_board (which is just plain odd)
+	if(!allowedTo('enter_board'))
+		fatal_lang_error('topic_gone', false);
+
+]]></add>
+		</operation>
+	</file>
+	
+	<file name="SOURCEDIR/database/Db-mysql.class.php">
+		<operation>
+			<search position="after"><![CDATA[	if ($matches[1] === 'query_see_board')]]></search>
+			<add><![CDATA[	if ($matches[1] === 'query_see_only_board')
+		return $user_info['query_see_only_board'];
+
+]]></add>
+		</operation>
+	</file>
+
+	<file name="SOURCEDIR/database/Db-postgresql.class.php">
+		<operation>
+			<search position="after"><![CDATA[	if ($matches[1] === 'query_see_board')]]></search>
+			<add><![CDATA[	if ($matches[1] === 'query_see_only_board')
+		return $user_info['query_see_only_board'];
+
+]]></add>
+		</operation>
+	</file>
+</modification>
